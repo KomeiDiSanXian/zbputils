@@ -27,13 +27,13 @@ func SetRouters(engine *gin.Engine) {
 	apiRoute.POST("/handleRequest", controller.HandleRequest)
 	apiRoute.POST("/sendMsg", controller.SendMsg)
 	apiRoute.GET("/getUserInfo", controller.GetUserInfo)
-
+	/* job在该分支已移出，重写
 	// 任务相关接口
 	jobRoute := apiRoute.Group("/job")
 	jobRoute.GET("/list", controller.JobList)
 	jobRoute.POST("/add", controller.JobAdd)
 	jobRoute.POST("/delete", controller.JobDelete)
-
+	*/
 	// 管理相关接口
 	manageRoute := apiRoute.Group("/manage")
 	manageRoute.GET("/getPlugin", controller.GetPlugin)
