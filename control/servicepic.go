@@ -4,7 +4,6 @@ import (
 	"image"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +26,15 @@ const (
 	bannerurl  = "https://gitcode.net/u011570312/zbpbanner/-/raw/main/"
 )
 
+type card struct {
+	batchsize  int
+	n          int
+	pluginlist []plugininfo
+	cardlist   []image.Image
+	drawcard   func([]plugininfo, []image.Image)
+	wg         *sync.WaitGroup
+}
+
 type plugininfo struct {
 	name   string
 	brief  string
@@ -45,8 +53,8 @@ var (
 	lnperpg = 9
 	// 字体 GlowSans 数据
 	glowsd []byte
-	// 字体 Impact 数据
-	impactd []byte
+	// 字体 Sukura 数据
+	sakurad []byte
 )
 
 func init() {
@@ -62,7 +70,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	impactd, err = file.GetLazyData(text.ImpactFontFile, Md5File, true)
+	// 原来的字体缺失中文，更换为这个
+	sakurad, err = file.GetLazyData(text.SakuraFontFile, Md5File, true)
 	if err != nil {
 		panic(err)
 	}
@@ -90,9 +99,9 @@ func drawservicesof(gid int64) (imgs []image.Image, err error) {
 			LeftTitle:     "服务列表",
 			LeftSubtitle:  "service_list",
 			RightTitle:    "FloatTech",
-			RightSubtitle: "ZeroBot-Plugin",
+			RightSubtitle: "RemiliaBot",
 			TitleFontData: glowsd,
-			TextFontData:  impactd,
+			TextFontData:  sakurad,
 			ImagePath:     kanbanpath + "kanban.png",
 		}).DrawTitle()
 		if err != nil {
@@ -104,103 +113,20 @@ func drawservicesof(gid int64) (imgs []image.Image, err error) {
 	n := runtime.NumCPU()
 
 	if len(pluginlist) <= n {
-		for k, info := range pluginlist {
-			banner := ""
-			switch {
-			case strings.HasPrefix(info.banner, "http"):
-				err = file.DownloadTo(info.banner, bannerpath+info.name+".png")
-				if err != nil {
-					return
-				}
-				banner = bannerpath + info.name + ".png"
-			case info.banner != "":
-				banner = info.banner
-			default:
-				_, err = file.GetCustomLazyData(bannerurl, bannerpath+info.name+".png")
-				if err == nil {
-					banner = bannerpath + info.name + ".png"
-				}
-			}
-			c := &rendercard.Title{
-				IsEnabled:     info.status,
-				LeftTitle:     info.name,
-				LeftSubtitle:  info.brief,
-				ImagePath:     banner,
-				TitleFontData: impactd,
-				TextFontData:  glowsd,
-			}
-			h := c.Sum64()
-			card := cardcache.Get(h)
-			if card == nil {
-				card, err = c.DrawCard()
-				if err != nil {
-					return
-				}
-				cardcache.Set(h, card)
-			}
-			cardlist[k] = card
-		}
+		err = drawSingleCard(pluginlist, cardlist, false)
 	} else {
-		batchsize := len(pluginlist) / n
 		wg := sync.WaitGroup{}
-		drawcard := func(info []plugininfo, cards []image.Image) {
-			defer wg.Done()
-			for k, info := range info {
-				banner := ""
-				switch {
-				case strings.HasPrefix(info.banner, "http"):
-					err1 := file.DownloadTo(info.banner, bannerpath+info.name+".png")
-					if err1 != nil {
-						err = err1
-						return
-					}
-					banner = bannerpath + info.name + ".png"
-				case info.banner != "":
-					banner = info.banner
-				default:
-					_, err1 := file.GetCustomLazyData(bannerurl, bannerpath+info.name+".png")
-					if err1 == nil {
-						banner = bannerpath + info.name + ".png"
-					}
-				}
-				c := &rendercard.Title{
-					IsEnabled:     info.status,
-					LeftTitle:     info.name,
-					LeftSubtitle:  info.brief,
-					ImagePath:     banner,
-					TitleFontData: impactd,
-					TextFontData:  glowsd,
-				}
-				h := c.Sum64()
-				card := cardcache.Get(h)
-				if card == nil {
-					var err1 error
-					card, err1 = c.DrawCard()
-					if err1 != nil {
-						err = err1
-						return
-					}
-					card = rendercard.Fillet(card, 8)
-					cardcache.Set(h, card)
-				}
-				cards[k] = card
-			}
-		}
-		wg.Add(n)
-		for i := 0; i < n; i++ {
-			a := i * batchsize
-			b := (i + 1) * batchsize
-			go drawcard(pluginlist[a:b], cardlist[a:b])
-		}
-		if batchsize*n < len(pluginlist) {
-			wg.Add(1)
-			d := len(pluginlist) - batchsize*n
-			go drawcard(pluginlist[d:], cardlist[d:])
-		}
-		wg.Wait()
-		if err != nil {
-			return
-		}
+		card{
+			batchsize:  len(pluginlist) / n,
+			n:          n,
+			pluginlist: pluginlist,
+			cardlist:   cardlist,
+			drawcard: func(info []plugininfo, cards []image.Image) {
+				defer wg.Done()
+				err = drawSingleCard(info, cards, true)
+			},
+			wg: &wg,
+		}.drawCards()
 	}
 
 	wg := sync.WaitGroup{}
@@ -209,18 +135,7 @@ func drawservicesof(gid int64) (imgs []image.Image, err error) {
 	imgs = make([]image.Image, page)
 	x, y := 30+2, 30+300+30+6+4
 	if fullpageshadowcache == nil {
-		fullpageshadow := gg.NewContextForImage(rendercard.Transparency(titlecache, 0))
-		fullpageshadow.SetRGBA255(0, 0, 0, 192)
-		for i := 0; i < cardnum; i++ {
-			fullpageshadow.DrawRoundedRectangle(float64(x), float64(y), 384-4, 256-4, 0)
-			fullpageshadow.Fill()
-			x += 384 + 30
-			if (i+1)%3 == 0 {
-				x = 30 + 2
-				y += 256 + 30
-			}
-		}
-		fullpageshadowcache = imaging.Blur(fullpageshadow.Image(), 7)
+		fullpageshadowcache = drawShadow(x, y, cardnum)
 	}
 	wg.Add(page)
 	for l := 0; l < page; l++ { // 页数
@@ -229,35 +144,111 @@ func drawservicesof(gid int64) (imgs []image.Image, err error) {
 			x, y := 30+2, 30+300+30+6+4
 			var shadowimg image.Image
 			if islast && len(pluginlist)-cardnum*l < cardnum {
-				shadow := gg.NewContextForImage(rendercard.Transparency(titlecache, 0))
-				shadow.SetRGBA255(0, 0, 0, 192)
-				for i := 0; i < len(pluginlist)-cardnum*l; i++ {
-					shadow.DrawRoundedRectangle(float64(x), float64(y), 384-4, 256-4, 0)
-					shadow.Fill()
-					x += 384 + 30
-					if (i+1)%3 == 0 {
-						x = 30 + 2
-						y += 256 + 30
-					}
-				}
-				shadowimg = imaging.Blur(shadow.Image(), 7)
+				shadowimg = drawShadow(x, y, len(pluginlist)-cardnum*l)
 			} else {
 				shadowimg = fullpageshadowcache
 			}
-			one := gg.NewContextForImage(titlecache)
-			x, y = 30, 30+300+30
-			one.DrawImage(shadowimg, 0, 0)
-			for i := 0; i < math.Min(cardnum, len(pluginlist)-cardnum*l); i++ {
-				one.DrawImage(cardlist[(cardnum*l)+i], x, y)
-				x += 384 + 30
-				if (i+1)%3 == 0 {
-					x = 30
-					y += 256 + 30
-				}
-			}
-			imgs[l] = one.Image()
+			onePageCardNum := cardnum * l
+			cardnums := math.Min(cardnum, len(pluginlist)-onePageCardNum)
+			imgs[l] = drawShadowIntoOnePage(shadowimg, cardnums, onePageCardNum, cardlist)
 		}(l, l == page-1)
 	}
 	wg.Wait()
 	return
+}
+
+func drawShadowIntoOnePage(shadowimg image.Image, cardnums, cardInList int, cardlist []image.Image) image.Image {
+	one := gg.NewContextForImage(titlecache)
+	x, y := 30, 30+300+30
+	one.DrawImage(shadowimg, 0, 0)
+	for i := 0; i < cardnums; i++ {
+		one.DrawImage(cardlist[cardInList+i], x, y)
+		x += 384 + 30
+		if (i+1)%3 == 0 {
+			x = 30
+			y += 256 + 30
+		}
+	}
+	return one.Image()
+}
+
+func drawShadow(x, y, cardnum int) image.Image {
+	shadow := gg.NewContextForImage(rendercard.Transparency(titlecache, 0))
+	shadow.SetRGBA255(0, 0, 0, 192)
+	for i := 0; i < cardnum; i++ {
+		shadow.DrawRoundedRectangle(float64(x), float64(y), 384-4, 256-4, 0)
+		shadow.Fill()
+		x += 384 + 30
+		if (i+1)%3 == 0 {
+			x = 30 + 2
+			y += 256 + 30
+		}
+	}
+	return imaging.Blur(shadow.Image(), 7)
+}
+
+/*
+func downloadCard(info plugininfo) (banner string, err error) {
+	switch {
+	case strings.HasPrefix(info.banner, "http"):
+		err = file.DownloadTo(info.banner, bannerpath+info.name+".png")
+		if err != nil {
+			return
+		}
+		banner = bannerpath + info.name + ".png"
+	case info.banner != "":
+		banner = info.banner
+	default:
+		_, err = file.GetCustomLazyData(bannerurl, bannerpath+info.name+".png")
+		if err == nil {
+			banner = bannerpath + info.name + ".png"
+		}
+	}
+	return
+}
+*/
+
+func drawSingleCard(pluginInfo []plugininfo, cardlist []image.Image, RoundedRectangle bool) error {
+	for k, info := range pluginInfo {
+		// 不下载可以更快
+		//banner, _ := downloadCard(info)
+		c := &rendercard.Title{
+			IsEnabled:     info.status,
+			LeftTitle:     info.name,
+			LeftSubtitle:  info.brief,
+			ImagePath:     "", // banner
+			TitleFontData: sakurad,
+			TextFontData:  glowsd,
+		}
+		h := c.Sum64()
+		card := cardcache.Get(h)
+		if card == nil {
+			var err error
+			card, err = c.DrawCard()
+			if err != nil {
+				return err
+			}
+			if RoundedRectangle {
+				card = rendercard.Fillet(card, 8)
+			}
+			cardcache.Set(h, card)
+		}
+		cardlist[k] = card
+	}
+	return nil
+}
+
+func (c card) drawCards() {
+	c.wg.Add(c.n)
+	for i := 0; i < c.n; i++ {
+		a := i * c.batchsize
+		b := (i + 1) * c.batchsize
+		go c.drawcard(c.pluginlist[a:b], c.cardlist[a:b])
+	}
+	if c.batchsize*c.n < len(c.pluginlist) {
+		c.wg.Add(1)
+		d := len(c.pluginlist) - c.batchsize*c.n
+		go c.drawcard(c.pluginlist[d:], c.cardlist[d:])
+	}
+	c.wg.Wait()
 }
