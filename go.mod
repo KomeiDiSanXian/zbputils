@@ -1,6 +1,6 @@
 module github.com/FloatTech/zbputils
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/FloatTech/ZeroBot-Plugin-Webui v1.0.1-0.20230412164529-cfe878675931
