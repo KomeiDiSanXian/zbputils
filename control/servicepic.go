@@ -208,10 +208,10 @@ func downloadCard(info plugininfo) (banner string, err error) {
 }
 */
 
-func drawSingleCard(pluginInfo []plugininfo, cardlist []image.Image, RoundedRectangle bool) error {
+func drawSingleCard(pluginInfo []plugininfo, cardlist []image.Image, roundedRectangle bool) error {
 	for k, info := range pluginInfo {
 		// 不下载可以更快
-		//banner, _ := downloadCard(info)
+		// banner, _ := downloadCard(info)
 		c := &rendercard.Title{
 			IsEnabled:     info.status,
 			LeftTitle:     info.name,
@@ -228,7 +228,7 @@ func drawSingleCard(pluginInfo []plugininfo, cardlist []image.Image, RoundedRect
 			if err != nil {
 				return err
 			}
-			if RoundedRectangle {
+			if roundedRectangle {
 				card = rendercard.Fillet(card, 8)
 			}
 			cardcache.Set(h, card)
