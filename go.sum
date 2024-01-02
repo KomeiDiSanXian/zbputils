@@ -1,8 +1,8 @@
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/FloatTech/ZeroBot-Plugin-Webui v1.0.1-0.20230412164529-cfe878675931 h1:jTc1mb2sG1krnxpgD75SMojeOMIl6bGX5t3YGIRKkHI=
 github.com/FloatTech/ZeroBot-Plugin-Webui v1.0.1-0.20230412164529-cfe878675931/go.mod h1:Se2A9vnC4eSYF7vR2LNSayV7rvbFcpgVs1ZN4sEYMyg=
-github.com/FloatTech/floatbox v0.0.0-20230331064925-9af336a84944 h1:/eQoMa6Aj3coF5F7yhzZe1+SzX6SItul7MW8//pl18o=
-github.com/FloatTech/floatbox v0.0.0-20230331064925-9af336a84944/go.mod h1:FwQm6wk+b4wuW54KCKn3zccMX47Q5apnHD/Yakzv0fI=
+github.com/FloatTech/floatbox v0.0.0-20231107124407-e38535efa2a2 h1:O4kptIzgYzNwZlBARZFv8EkA40yB6M5LGxxIF7NKLR8=
+github.com/FloatTech/floatbox v0.0.0-20231107124407-e38535efa2a2/go.mod h1:TeTlp+hTxpJti4JSdmUqzxGEr4wUBOVct9YWBepilpc=
 github.com/FloatTech/gg v1.1.2 h1:YolgOYg3uDHc1+g0bLtt6QuRA/pvLn+b9IBCIhOOX88=
 github.com/FloatTech/gg v1.1.2/go.mod h1:uzPzAeT35egARdRuu+1oyjU3CmTwCceoq3Vvje7LpcI=
 github.com/FloatTech/imgfactory v0.2.2-0.20230315152233-49741fc994f9 h1:IzZLuM/fgKclyMaU/Qb1qlLdGrs2FTietkqOWhh07Gw=
@@ -250,8 +250,8 @@ github.com/ugorji/go/codec v1.2.7/go.mod h1:WGN1fab3R1fzQlVQTkfxVtIBhWDRqOviHU95
 github.com/ugorji/go/codec v1.2.11 h1:BMaWp1Bb6fHwEtbplGBGJ498wD+LKlNSl25MjdZY4dU=
 github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/urfave/cli/v2 v2.3.0/go.mod h1:LJmUH05zAU44vOAcrfzZQKsZbVcdbOG8rtL3/XcUArI=
-github.com/wdvxdr1123/ZeroBot v1.7.4 h1:+148rELpf/FCDW2EuvKqpb9bNKcwKRtoh16s2sIb5SE=
-github.com/wdvxdr1123/ZeroBot v1.7.4/go.mod h1:y29UIOy0RD3P+0meDNIWRhcJF3jtWPN9xP9hgt/AJAU=
+github.com/wdvxdr1123/ZeroBot v1.7.5-0.20231009162356-57f71b9f5258 h1:Q0dKoj9SHrR8WjjlcX+eyYBjQKqBn/x1pdJJO1IIOxQ=
+github.com/wdvxdr1123/ZeroBot v1.7.5-0.20231009162356-57f71b9f5258/go.mod h1:y29UIOy0RD3P+0meDNIWRhcJF3jtWPN9xP9hgt/AJAU=
 github.com/yuin/goldmark v1.4.0/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
