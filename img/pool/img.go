@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/wdvxdr1123/ZeroBot/message"
 
+	"github.com/FloatTech/floatbox/web"
 	"github.com/FloatTech/zbputils/ctxext"
 )
 
@@ -22,6 +24,10 @@ var (
 	ErrNoSuchImg       = errors.New("no such img")
 	ErrSendImg         = errors.New("send image error")
 	ErrGetMsg          = errors.New("get msg error")
+)
+
+var (
+	oldimgre = regexp.MustCompile(`^[0-9A-F-]+$`)
 )
 
 // Image 图片数据
@@ -36,20 +42,16 @@ func GetImage(name string) (m *Image, err error) {
 	m.n = name
 	m.item, err = getItem(name)
 	if err == nil && m.u != "" {
-		var resp *http.Response
-		resp, err = http.Head(m.String())
+		_, err = web.RequestDataWithHeaders(http.DefaultClient, m.String(), "GET", func(r *http.Request) error {
+			r.Header.Set("Range", "bytes=0-1")
+			r.Header.Set("User-Agent", web.RandUA())
+			return nil
+		}, nil)
 		if err == nil {
-			_ = resp.Body.Close()
-		} else {
-			goto OUTDATE
+			return
 		}
-		if resp.StatusCode != http.StatusOK {
-			goto OUTDATE
-		}
-		return
-	OUTDATE:
+		logrus.Debugln("[imgpool] image", name, m, "outdated:", err)
 		err = ErrImgFileOutdated
-		logrus.Debugln("[imgpool] image", name, m, "outdated")
 		return
 	}
 	err = ErrNoSuchImg
@@ -64,16 +66,15 @@ func NewImage(send ctxext.NoCtxSendMsg, get ctxext.NoCtxGetMsg, name, f string) 
 	m.SetFile(f)
 	m.item, err = getItem(name)
 	if err == nil && m.item.u != "" {
-		var resp *http.Response
-		resp, err = http.Head(m.String())
+		_, err = web.RequestDataWithHeaders(http.DefaultClient, m.String(), "GET", func(r *http.Request) error {
+			r.Header.Set("Range", "bytes=0-1")
+			r.Header.Set("User-Agent", web.RandUA())
+			return nil
+		}, nil)
 		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return
-			}
+			return
 		}
-		logrus.Debugln("[imgpool] image", name, m, "outdated, updating...")
-		get = nil
+		logrus.Debugln("[imgpool] image", name, m, "outdated:", err, "updating...")
 	}
 	hassent, err = m.Push(send, get)
 	return
@@ -84,7 +85,14 @@ func (m *Image) String() string {
 	if m.item == nil {
 		return m.f
 	}
-	return fmt.Sprintf(cacheurl, m.item.u)
+	if oldimgre.MatchString(m.item.u) {
+		return fmt.Sprintf(cacheurl, m.item.u)
+	}
+	nu, err := unpack(m.item.u)
+	if err != nil {
+		return m.f
+	}
+	return string(nu)
 }
 
 // SetFile f
@@ -104,31 +112,28 @@ func (m *Image) Push(send ctxext.NoCtxSendMsg, get ctxext.NoCtxGetMsg) (hassent 
 		return
 	}
 	hassent = true
-	if get != nil {
-		msg := get(id)
-		for _, e := range msg.Elements {
-			if e.Type == "image" {
-				u := e.Data["url"]
-				i := strings.LastIndex(u, "/")
-				if i <= 0 {
-					break
+	if get == nil {
+		return
+	}
+	msg := get(id)
+	for _, e := range msg.Elements {
+		if e.Type == "image" {
+			u := e.Data["url"]
+			if ntcachere.MatchString(u) { // is NTQQ
+				raw := ""
+				raw, err = nturl(u).pack()
+				if err != nil {
+					logrus.Errorln("[imgpool] pack nturl err:", err)
+					err = nil
+					return
 				}
-				u = u[:i]
-				i = strings.LastIndex(u, "-")
-				if i <= 0 {
-					break
-				}
-				u = u[i:]
-				if u == "" {
-					break
-				}
-				m.item, err = newItem(m.n, "0-0"+u)
+				m.item, err = newItem(m.n, raw)
 				if err != nil {
 					logrus.Errorln("[imgpool] get newItem err:", err)
 					err = nil
 					return
 				}
-				logrus.Debugln("[imgpool] 缓存:", m.n, "url:", "0-0"+u)
+				logrus.Debugln("[imgpool] 缓存:", m.n, "url:", u)
 				err = m.item.push("minamoto")
 				if err != nil {
 					logrus.Errorln("[imgpool] item.push err:", err)
@@ -136,8 +141,34 @@ func (m *Image) Push(send ctxext.NoCtxSendMsg, get ctxext.NoCtxGetMsg) (hassent 
 				}
 				return
 			}
+			i := strings.LastIndex(u, "/")
+			if i <= 0 {
+				break
+			}
+			u = u[:i]
+			i = strings.LastIndex(u, "-")
+			if i <= 0 {
+				break
+			}
+			u = u[i:]
+			if u == "" {
+				break
+			}
+			m.item, err = newItem(m.n, "0-0"+u)
+			if err != nil {
+				logrus.Errorln("[imgpool] get newItem err:", err)
+				err = nil
+				return
+			}
+			logrus.Debugln("[imgpool] 缓存:", m.n, "url:", "0-0"+u)
+			err = m.item.push("minamoto")
+			if err != nil {
+				logrus.Errorln("[imgpool] item.push err:", err)
+				err = nil
+			}
+			return
 		}
-		err = ErrGetMsg
 	}
+	err = ErrGetMsg
 	return
 }
